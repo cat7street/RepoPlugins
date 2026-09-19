@@ -1,0 +1,29 @@
+<Project>
+  <!-- 两个插件共享的构建配置。游戏更新后在这里改一次即可。 -->
+  <PropertyGroup>
+    <Authors>cat7street</Authors>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+    <!-- 游戏安装目录：-p:GameDir=... 或环境变量 REPO_GAME_DIR。
+         直接引用本机游戏程序集编译，保证与当前安装的游戏版本签名严格一致。 -->
+    <GameDir Condition="'$(GameDir)' == ''">$(REPO_GAME_DIR)</GameDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" IncludeAssets="build" />
+    <PackageReference Include="BepInEx.Core" Version="5.*" ExcludeAssets="runtime" />
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.62" IncludeAssets="compile" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="RequireGameDir" BeforeTargets="BeforeBuild"
+          Condition="'$(GameDir)' == '' or !Exists('$(GameDir)\REPO_Data\Managed\Assembly-CSharp.dll')">
+    <Error Text="未找到游戏程序集。请用 -p:GameDir=&lt;R.E.P.O. 安装目录&gt; 或设置环境变量 REPO_GAME_DIR 指向游戏根目录（含 REPO_Data 的那一层）。" />
+  </Target>
+</Project>
