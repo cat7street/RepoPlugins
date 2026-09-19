@@ -27,6 +27,11 @@ namespace RepoMapSuite
             return NamedColors.TryGetValue(value.ToLowerInvariant(), out var named) ? named : Color.white;
         }
 
+        internal static string[] NamedColorNames()
+        {
+            return NamedColors.Keys.ToArray();
+        }
+
         internal static bool IsInLevel()
         {
             return SemiFunc.RunIsLevel()

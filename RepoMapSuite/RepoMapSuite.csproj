@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Description>RepoMapSuite —— R.E.P.O. 地图增强三合一：Tab 地图队友/敌人图标 + 可缩放小地图 + 地图剩余价值 HUD</Description>
+      <MenuLibDll Condition="'$(MenuLibDll)' == ''">MenuLib.dll</MenuLibDll>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,11 @@
     </Reference>
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(GameDir)\REPO_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
+    <!-- MenuLib.dll（软依赖，仅游戏内设置菜单用）：默认取项目目录，
+         也可用 -p:MenuLibDll= 指定完整路径。https://thunderstore.io/c/repo/p/nickklmao/MenuLib/ -->
+    <Reference Include="MenuLib">
+      <HintPath>$(MenuLibDll)</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(GameDir)\REPO_Data\Managed\UnityEngine.UI.dll</HintPath>

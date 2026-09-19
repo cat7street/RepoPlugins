@@ -16,6 +16,7 @@ namespace RepoMapSuite
     /// MapCustom.mapCustomEntity（转私有）、BreakRPC（新增参数）等 API 变更做了适配。
     /// </summary>
     [BepInPlugin(GUID, NAME, VERSION)]
+    [BepInDependency("nickklmao.menulib", BepInDependency.DependencyFlags.SoftDependency)]
     public class RepoMapSuite : BaseUnityPlugin
     {
         public const string GUID = "cat7street.RepoMapSuite";
@@ -42,6 +43,8 @@ namespace RepoMapSuite
             HarmonyInstance = new Harmony(GUID);
             HarmonyInstance.PatchAll();
 
+            Menu.SettingsMenu.Initialize();
+
             Logger.LogInfo($"{NAME} v{VERSION} 已加载（三合一：地图图标 + 小地图 + 价值 HUD）");
         }
 
@@ -49,6 +52,7 @@ namespace RepoMapSuite
         {
             try
             {
+                Menu.SettingsMenu.Update();
                 HandleZoomKeys();
 
                 if (!Util.IsInLevel())
@@ -126,6 +130,54 @@ namespace RepoMapSuite
             if (Input.GetKeyDown(Cfg.ZoomOutKey.Value))
             {
                 Cfg.MinimapZoom.Value = Mathf.Min(Cfg.MinimapZoom.Value + 0.5f, 10f);
+            }
+        }
+
+        // ---- 原生 HUD 避让（小地图右上角时把游戏的价值/目标 HUD 下移）----
+        private Vector2 _haulInitial, _goalInitial;
+        private bool _uiInitialCaptured;
+
+        private void LateUpdate()
+        {
+            try
+            {
+                if (!Util.IsInLevel())
+                {
+                    _uiInitialCaptured = false;
+                    return;
+                }
+                var haul = HaulUI.instance;
+                var goal = GoalUI.instance;
+                if (haul == null || goal == null) return;
+
+                var haulRect = (RectTransform)haul.transform;
+                var goalRect = (RectTransform)goal.transform;
+                if (!_uiInitialCaptured)
+                {
+                    _haulInitial = haulRect.anchoredPosition;
+                    _goalInitial = goalRect.anchoredPosition;
+                    _uiInitialCaptured = true;
+                }
+
+                // 原版 TheEverythingMap 的避让公式：下移 95 × (小地图边长 / 300) 像素
+                bool avoid = Cfg.MinimapEnabled.Value
+                    && Cfg.MinimapPreset.Value == MinimapPosition.TopRight
+                    && !Util.HasLocalMapToolActive();
+                if (avoid)
+                {
+                    float shift = -95f * (Cfg.MinimapSize.Value / 300f);
+                    haulRect.anchoredPosition = _haulInitial + new Vector2(0f, shift);
+                    goalRect.anchoredPosition = _goalInitial + new Vector2(0f, shift);
+                }
+                else
+                {
+                    haulRect.anchoredPosition = _haulInitial;
+                    goalRect.anchoredPosition = _goalInitial;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"HUD 避让异常（已忽略）：{e.Message}");
             }
         }
 
@@ -207,6 +259,7 @@ namespace RepoMapSuite
         internal static ConfigEntry<float> MinimapOpacity;
         internal static ConfigEntry<KeyCode> ZoomInKey;
         internal static ConfigEntry<KeyCode> ZoomOutKey;
+        internal static ConfigEntry<KeyCode> MenuKey;
 
         // 价值 HUD
         internal static ConfigEntry<bool> ValueHudEnabled;
@@ -238,6 +291,7 @@ namespace RepoMapSuite
             MinimapOpacity = config.Bind("2. 小地图", "Opacity", 0.85f, "小地图不透明度 0~1");
             ZoomInKey = config.Bind("2. 小地图", "ZoomInKey", KeyCode.Equals, "小地图放大按键");
             ZoomOutKey = config.Bind("2. 小地图", "ZoomOutKey", KeyCode.Minus, "小地图缩小按键");
+            MenuKey = config.Bind("4. 设置菜单", "MenuKey", KeyCode.M, "游戏内打开 RepoMapSuite 设置菜单的按键");
 
             ValueHudEnabled = config.Bind("3. 价值HUD", "Enabled", true, "是否启用地图剩余价值 HUD");
             ValueHudAlwaysOn = config.Bind("3. 价值HUD", "AlwaysOn", false, "始终显示价值 HUD（否则按住 Tab / 打开地图时显示）");

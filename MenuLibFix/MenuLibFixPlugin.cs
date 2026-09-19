@@ -47,7 +47,38 @@ namespace MenuLibFix
     [HarmonyPatch(typeof(SemiFunc), "UIMouseHover")]
     internal static class SemiFunc_UIMouseHover_Patch
     {
+        private static string _lastHoverError;
+
+        /// <summary>保险网：prefix 任何异常都按"未悬停"处理，绝不让异常漏进 MenuManager.Update。</summary>
         private static bool Prefix(
+            MenuPage parentPage,
+            RectTransform rectTransform,
+            string menuID,
+            float xPadding,
+            float yPadding,
+            MenuScrollBox scrollBox,
+            ScrollRect scrollRect,
+            ref bool __result)
+        {
+            try
+            {
+                return HoverImpl(parentPage, rectTransform, menuID, xPadding, yPadding,
+                                 scrollBox, scrollRect, ref __result);
+            }
+            catch (Exception e)
+            {
+                var key = e.GetType().Name + ":" + e.Message;
+                if (key != _lastHoverError)
+                {
+                    _lastHoverError = key;
+                    MenuLibFixPlugin.Logger.LogWarning($"UIMouseHover 替代逻辑异常（按未悬停处理）：{e}");
+                }
+                __result = false;
+                return false;
+            }
+        }
+
+        private static bool HoverImpl(
             MenuPage parentPage,
             RectTransform rectTransform,
             string menuID,
@@ -75,18 +106,32 @@ namespace MenuLibFix
             }
 
             // ===== MenuLib 定制点：自定义滚动视图边界判定（原游戏用 scrollerEndPosition）=====
-            if ((bool)scrollBox && scrollBox.scroller != null)
+            // 关键：scroller 缺失时必须回落到原生判定，不能放行——原版会在鼠标
+            // 位于滚动区外时提前 return false，跳过后面的 UIGetRectTransformPositionOnScreen
+            // （该方法内部 GetComponentInParent<MenuPage>() 为空时直接 NRE）。
+            if ((bool)scrollBox)
             {
-                RectTransform scrollerParent = (RectTransform)((Transform)scrollBox.scroller).parent;
+                RectTransform scrollerParent = scrollBox.scroller != null
+                    ? (RectTransform)((Transform)scrollBox.scroller).parent
+                    : null;
+                bool inside;
                 if (scrollerParent != null)
                 {
                     float bottom = ((Transform)scrollerParent).position.y;
                     float top = bottom + scrollerParent.sizeDelta.y;
-                    if (!(screenPoint.y > bottom && screenPoint.y < top))
-                    {
-                        __result = false;
-                        return false;
-                    }
+                    inside = screenPoint.y > bottom && screenPoint.y < top;
+                }
+                else
+                {
+                    // 原生判定兜底（游戏 build 23363152 的公式，乘数恒为 1 已省略）
+                    float low = scrollBox.transform.position.y - 10f;
+                    float high = scrollBox.scrollerEndPosition + 32f;
+                    inside = screenPoint.y <= high && screenPoint.y >= low;
+                }
+                if (!inside)
+                {
+                    __result = false;
+                    return false;
                 }
             }
 
@@ -112,6 +157,17 @@ namespace MenuLibFix
                         return false;
                     }
                 }
+            }
+
+            // 不在任何 MenuPage 下、或页面自身 rectTransform 未初始化（刚创建，
+            // Start() 尚未跑完）的元素：按未悬停处理。
+            // UIGetRectTransformPositionOnScreen 内部对 MenuPage.rectTransform
+            // 直接解引用，为空会 NRE，必须在调用前挡掉。
+            MenuPage hostPage = rectTransform.GetComponentInParent<MenuPage>();
+            if (hostPage == null || hostPage.rectTransform == null)
+            {
+                __result = false;
+                return false;
             }
 
             Vector2 rectPos = SemiFunc.UIGetRectTransformPositionOnScreen(rectTransform, false);
