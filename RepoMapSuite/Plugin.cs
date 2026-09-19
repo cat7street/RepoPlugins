@@ -21,7 +21,8 @@ namespace RepoMapSuite
     {
         public const string GUID = "cat7street.RepoMapSuite";
         public const string NAME = "RepoMapSuite";
-        public const string VERSION = "1.0.0";
+        // 注意：与 csproj 的 <Version> 保持一致（BepInPlugin 特性要求编译期常量）
+        public const string VERSION = "1.0.1";
 
         internal static new ManualLogSource Logger;
         internal static Harmony HarmonyInstance;
