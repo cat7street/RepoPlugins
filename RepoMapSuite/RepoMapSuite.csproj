@@ -24,6 +24,7 @@
          也可用 -p:MenuLibDll= 指定完整路径。https://thunderstore.io/c/repo/p/nickklmao/MenuLib/ -->
     <Reference Include="MenuLib">
       <HintPath>$(MenuLibDll)</HintPath>
+      <Publicize>true</Publicize>
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(GameDir)\REPO_Data\Managed\UnityEngine.UI.dll</HintPath>

@@ -101,6 +101,20 @@ namespace RepoMapSuite.Menu
         internal static void Close()
         {
             if (_page == null) return;
+            try
+            {
+                // 还原菜单归属（主菜单下让背后的设置页重新接管；关卡内恢复无菜单状态，
+                // MenuManager 检测 currentMenuPage 为空会自动收起光标、恢复玩家输入）
+                var mm = MenuManager.instance;
+                if (mm != null && mm.currentMenuPage == _page.menuPage)
+                {
+                    mm.PageSetCurrent(_prevIndex, _prevPage);
+                }
+            }
+            catch (Exception e)
+            {
+                RepoMapSuite.Logger.LogWarning($"还原菜单状态失败：{e.Message}");
+            }
             MenuManager.instance.PageRemove(_page.menuPage);
             UnityEngine.Object.Destroy(_page.menuPage.gameObject);
             _page.ClosePage(true);
@@ -110,10 +124,37 @@ namespace RepoMapSuite.Menu
             _keyButton = null;
         }
 
+        private static MenuPageIndex _prevIndex;
+        private static MenuPage _prevPage;
+
         private static void View()
         {
             Close();
             _page = CreateREPOPopupPage("RepoMapSuite 设置", 0, false, true, 0f);
+
+            // —— 2026-09 版本（build 23363152）兼容 ——
+            // 新版游戏两处变动让 MenuLib 2.5.4 弹窗"创建成功但不可见"：
+            // 1) MenuPage.PageState 枚举重排，2 由 Active 变 Closing——REPOPopupPage.Start()
+            //    硬编码 PageStateSet(2) 相当于创建即自关；
+            // 2) StateActive 强制校验 currentMenuPageIndex，未登记的页面一激活就被打回 Inactive。
+            // 处理：预置 pageWasActivatedOnce 跳过 Start 的错误调用，把页面登记为 PopUp 索引，
+            // 再显式进入 Opening 状态。关闭时还原原来的索引/页面。
+            try
+            {
+                var mm = MenuManager.instance;
+                _prevIndex = mm.currentMenuPageIndex;
+                _prevPage = mm.currentMenuPage;
+                _page.pageWasActivatedOnce = true;
+                var mp = _page.menuPage;
+                mp.menuPageIndex = MenuPageIndex.PopUp;
+                mm.PageSetCurrent(MenuPageIndex.PopUp, mp);
+                mp.PageStateSet(MenuPage.PageState.Opening);
+            }
+            catch (Exception e)
+            {
+                RepoMapSuite.Logger.LogWarning($"设置面板兼容处理失败：{e.Message}");
+            }
+
             _page.AddElement(parent => CreateREPOButton("返回", Close, parent, new Vector2(66f, 18f)));
 
             float y = 60f;
